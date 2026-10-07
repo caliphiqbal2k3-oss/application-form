@@ -1,0 +1,759 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Applications">
+<meta name="theme-color" content="#f3f5f9">
+<title>Application Form</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: a mock office form on blue-ruled paper, one card per question, red rubber-stamp accent. */
+:root {
+  --paper: #f3f5f9; --sheet: #ffffff; --ink: #1b2440; --ink-soft: #5a6383; --rule: #d6dcea;
+  --blue: #2d4fd6; --blue-soft: #e6ebfc; --stamp: #d23a3a; --stamp-soft: #fbe7e5;
+  --skip: #8a7a1f; --skip-soft: #f7f0cc; --good: #1f8a4c; --good-soft: #def3e6;
+  --font: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #10131c; --sheet: #181d2a; --ink: #e7eaf4; --ink-soft: #9aa3c0; --rule: #2b3247;
+    --blue: #8fa6ff; --blue-soft: #222c4d; --stamp: #ff7a72; --stamp-soft: #3a1f22;
+    --skip: #e3cf6b; --skip-soft: #36311a; --good: #5fd18f; --good-soft: #17301f; color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--paper); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.5;
+  padding-inline: 16px; padding-block: env(safe-area-inset-top, 0px) calc(48px + env(safe-area-inset-bottom, 0px)); }
+.wrap { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+[hidden] { display: none !important; }
+button { font-family: inherit; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--paper); padding: 10px 16px; margin-inline: -16px; border-bottom: 1px solid var(--rule); display: flex; flex-direction: column; gap: 8px; }
+.progress { display: flex; align-items: center; gap: 10px; font: 500 12px var(--mono); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.bar { flex: 1; height: 6px; background: var(--rule); border-radius: 3px; overflow: hidden; display: flex; }
+.bar i { display: block; height: 100%; }
+.bar .a { background: var(--blue); } .bar .s { background: var(--skip); }
+.savestate { font: 11px var(--mono); color: var(--ink-soft); text-align: right; }
+
+.head { background: var(--sheet); border: 1px solid var(--rule); border-radius: 4px; padding: 22px 18px; margin-top: 16px; position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 10px; }
+.formno { font: 500 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
+h1 { font-family: var(--font); font-weight: 800; font-size: clamp(28px, 8vw, 40px); line-height: 1.04; margin: 0; text-wrap: balance; letter-spacing: -.02em; }
+h2 { font: 800 22px var(--font); margin: 0; text-wrap: balance; }
+.funline { padding: 10px 12px; background: var(--blue-soft); border-radius: 6px; font-size: 15px; display: flex; flex-direction: column; gap: 4px; }
+.praise { font-weight: 600; }
+.stamp { position: absolute; right: -6px; top: 14px; transform: rotate(9deg); border: 3px solid var(--stamp); color: var(--stamp); font: 700 12px var(--mono); letter-spacing: .12em; padding: 4px 8px; border-radius: 4px; opacity: .85; }
+.msg { font-size: 14px; color: var(--ink-soft); }
+.err { font-size: 14px; color: var(--stamp); }
+
+.section { display: flex; flex-direction: column; gap: 10px; }
+.sec-h { margin-top: 18px; font: 800 19px var(--font); text-transform: uppercase; letter-spacing: .01em; text-wrap: balance; }
+.sec-h small { display: block; font: 600 12px var(--mono); color: var(--stamp); letter-spacing: .06em; }
+
+.q { background: var(--sheet); border: 1px solid var(--rule); border-radius: 4px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.q.done { border-left: 4px solid var(--blue); }
+.q.skipped { border-left: 4px solid var(--skip); background: var(--skip-soft); }
+.q-top { display: flex; gap: 10px; align-items: flex-start; }
+.q-text { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.hint { font: 12px var(--mono); color: var(--ink-soft); }
+.skipbtn { flex: none; font: 600 12px var(--mono); padding: 5px 10px; border-radius: 999px; border: 1px solid var(--rule); background: transparent; color: var(--ink-soft); cursor: pointer; }
+.q.skipped .skipbtn { background: var(--skip); border-color: var(--skip); color: var(--sheet); }
+.q.skipped .body { opacity: .4; pointer-events: none; }
+.opts { display: flex; flex-direction: column; gap: 6px; }
+.opt { display: flex; gap: 10px; align-items: center; text-align: left; width: 100%; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 6px; background: transparent; color: var(--ink); font: 15px var(--font); cursor: pointer; }
+.box { flex: none; width: 18px; height: 18px; border: 2px solid var(--ink-soft); border-radius: 3px; display: grid; place-items: center; font: 700 13px var(--mono); color: var(--sheet); }
+.opt[aria-pressed="true"] { border-color: var(--blue); background: var(--blue-soft); }
+.opt[aria-pressed="true"] .box { background: var(--blue); border-color: var(--blue); }
+.rate { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+.rate button { padding: 9px 0; border: 1px solid var(--rule); border-radius: 5px; background: transparent; color: var(--ink); font: 600 14px var(--mono); cursor: pointer; }
+.rate button.on { background: var(--blue); border-color: var(--blue); color: var(--sheet); }
+.rate-ends { display: flex; justify-content: space-between; font: 11px var(--mono); color: var(--ink-soft); }
+textarea, input[type=text], input[type=password], input[type=number], select { width: 100%; font: 16px var(--font); color: var(--ink); background: transparent; border: 0; border-bottom: 1.5px dashed var(--ink-soft); padding: 6px 2px; border-radius: 0; }
+textarea { min-height: 44px; resize: vertical; }
+select { border: 1px solid var(--rule); border-radius: 6px; padding: 8px; background: var(--sheet); }
+textarea:focus, input:focus, select:focus { outline: none; border-bottom-color: var(--blue); border-bottom-style: solid; }
+label.f { display: flex; flex-direction: column; gap: 4px; font: 600 12px var(--mono); color: var(--ink-soft); letter-spacing: .04em; text-transform: uppercase; }
+
+.hr { border: 2px dashed var(--stamp); border-radius: 4px; padding: 14px; background: var(--stamp-soft); display: flex; flex-direction: column; gap: 6px; font: 13px var(--mono); }
+.hr b { font: 800 16px var(--font); color: var(--stamp); }
+.notice { font-size: 14px; color: var(--ink-soft); background: var(--sheet); border: 1px solid var(--rule); border-radius: 4px; padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+
+.big { font: 800 18px var(--font); padding: 15px; border-radius: 8px; border: 0; background: var(--stamp); color: #fff; cursor: pointer; width: 100%; }
+.big.blue { background: var(--blue); color: var(--sheet); }
+.big:disabled { opacity: .5; }
+.ghost { font: 600 14px var(--mono); padding: 11px; border-radius: 8px; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); cursor: pointer; }
+.ghost.danger { color: var(--stamp); border-color: var(--stamp); }
+.small { font: 600 12px var(--mono); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); cursor: pointer; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.row > * { min-width: 0; }
+.grow { flex: 1; }
+.card { background: var(--sheet); border: 1px solid var(--rule); border-radius: 4px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.done-card { text-align: center; align-items: stretch; }
+.stamp2 { align-self: center; border: 3px solid var(--stamp); color: var(--stamp); font: 700 18px var(--mono); letter-spacing: .1em; padding: 6px 12px; transform: rotate(-4deg); border-radius: 4px; text-transform: uppercase; }
+.stamp2.good { border-color: var(--good); color: var(--good); }
+
+/* owner */
+.tabs { display: flex; gap: 6px; }
+.tab { flex: 1; font: 600 13px var(--mono); padding: 9px 4px; border-radius: 8px; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); cursor: pointer; }
+.tab[aria-selected="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.app-item { text-align: left; width: 100%; cursor: pointer; color: var(--ink); font: inherit; }
+.pill { font: 600 11px var(--mono); letter-spacing: .05em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+.pill.new { border: 1px solid var(--rule); color: var(--ink-soft); }
+.pill.filling { background: var(--blue-soft); color: var(--blue); }
+.pill.sub { background: var(--good-soft); color: var(--good); }
+.pill.verdict { background: var(--stamp-soft); color: var(--stamp); }
+.pill.skip { background: var(--skip); color: var(--sheet); }
+.meta { font: 12px var(--mono); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.linkbox { font: 13px var(--mono); background: var(--blue-soft); padding: 8px 10px; border-radius: 6px; overflow-wrap: anywhere; user-select: all; }
+.sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.sum div { background: var(--sheet); border: 1px solid var(--rule); border-radius: 4px; padding: 10px; text-align: center; }
+.sum b { display: block; font: 800 24px var(--font); font-variant-numeric: tabular-nums; }
+.sum span { font: 11px var(--mono); color: var(--ink-soft); text-transform: uppercase; letter-spacing: .06em; }
+.ro { display: flex; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 5px; font-size: 14px; color: var(--ink-soft); }
+.ro.picked { background: var(--blue-soft); color: var(--ink); font-weight: 600; }
+.ro .box { width: 16px; height: 16px; border-color: var(--rule); font-size: 11px; }
+.ro.picked .box { background: var(--blue); border-color: var(--blue); }
+.answer-text { font-size: 15px; padding: 8px 10px; background: var(--blue-soft); border-radius: 5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.badge { align-self: flex-start; }
+.verdicts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.verdicts button { font: 600 12px var(--mono); padding: 10px 6px; border-radius: 6px; border: 1px solid var(--rule); background: transparent; color: var(--ink); cursor: pointer; }
+.verdicts button.on { background: var(--stamp); border-color: var(--stamp); color: #fff; }
+.verdicts button.good.on { background: var(--good); border-color: var(--good); }
+.toggle { display: flex; gap: 10px; align-items: center; font-size: 15px; cursor: pointer; }
+.toggle input { width: 20px; height: 20px; }
+.qrow { display: flex; gap: 8px; align-items: flex-start; }
+.qrow .t { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 15px; }
+.qrow .k { font: 11px var(--mono); color: var(--ink-soft); text-transform: uppercase; }
+.qrow .ctl { display: flex; gap: 4px; flex: none; }
+.qrow .ctl button { width: 34px; height: 34px; padding: 0; }
+.confirm { background: var(--stamp-soft); border: 1px solid var(--stamp); border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--paper); font: 600 14px var(--mono); padding: 10px 16px; border-radius: 999px; z-index: 20; max-width: calc(100% - 32px); text-align: center; }
+.empty { border: 1px dashed var(--rule); border-radius: 4px; padding: 22px 16px; text-align: center; color: var(--ink-soft); }
+.result-card { border: 2px solid var(--stamp); background: var(--sheet); border-radius: 6px; padding: 16px; display: flex; flex-direction: column; gap: 8px; align-items: center; text-align: center; margin-top: 16px; }
+.result-card.good { border-color: var(--good); }
+.score { font: 800 40px var(--font); font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="empty" style="margin-top:40px">Loading…</div></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ===== connection ===== */
+const SB_URL = "https://vsxocqbloxghutecjnps.supabase.co";
+const SB_KEY = "sb_publishable_xRxVzmw99xjFyAJ8gjaQRA_0_2Mp1wp";
+
+const FRIENDLY = {
+  wrong_passcode: "Wrong passcode. Please log in again.",
+  name_required: "Please type a name.",
+  no_questions: "Add at least one question first.",
+  question_text_required: "The question text can't be empty.",
+  need_two_options: "A choice question needs at least 2 options.",
+  title_required: "The form title can't be empty.",
+  not_found: "This link doesn't work anymore.",
+  answers_too_long: "Your answers are too long to save. Please shorten some."
+};
+async function rpc(name, args) {
+  let r;
+  try {
+    r = await fetch(`${SB_URL}/rest/v1/rpc/${name}`, {
+      method: "POST",
+      headers: { apikey: SB_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify(args || {})
+    });
+  } catch (e) { throw new Error("No internet connection. Check your connection and try again."); }
+  const t = await r.text();
+  let data = null; try { data = t ? JSON.parse(t) : null; } catch (e) { data = t; }
+  if (!r.ok) {
+    const code = data && data.message ? data.message : "Error " + r.status;
+    const err = new Error(FRIENDLY[code] || code); err.code = code; throw err;
+  }
+  return data;
+}
+
+/* ===== helpers ===== */
+const $app = document.getElementById("app");
+const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+};
+let toastTimer;
+function toast(msg) { const t = document.getElementById("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 2600); }
+async function copyText(text, btn) {
+  try { await navigator.clipboard.writeText(text); toast("Copied ✓"); if (btn) btn.textContent = "Copied ✓"; return true; }
+  catch (e) { toast("Press and hold the text to copy it"); return false; }
+}
+function when(iso) {
+  if (!iso) return "";
+  const d = new Date(iso), s = (Date.now() - d) / 1000;
+  if (s < 60) return "just now";
+  if (s < 3600) return Math.floor(s / 60) + " min ago";
+  if (s < 86400) return Math.floor(s / 3600) + " h ago";
+  return d.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+}
+function splitSection(s) { const i = String(s || "").indexOf(" · "); return i < 0 ? ["", s] : [s.slice(0, i), s.slice(i + 3)]; }
+function groupBySection(qs) { const out = []; qs.forEach(q => { let g = out[out.length - 1]; if (!g || g.section !== q.section) { g = { section: q.section, qs: [] }; out.push(g); } g.qs.push(q); }); return out; }
+function sectionHeader(s) { const [n, t] = splitSection(s); const h = el("div", "sec-h", t); if (n) h.prepend(el("small", null, n)); return h; }
+const VERDICTS = [
+  ["approved", "Approved ✅", true], ["shortlisted", "Shortlisted for interview", true],
+  ["under_review", "Under review", false], ["rejected", "Rejected", false],
+  ["red_flags", "Rejected – red flags 🚩", false]
+];
+const verdictLabel = v => (VERDICTS.find(x => x[0] === v) || [, ""])[1];
+const verdictGood = v => !!(VERDICTS.find(x => x[0] === v) || [, , false])[2];
+
+/* ===== routing ===== */
+const params = new URLSearchParams(location.search);
+const TOKEN = params.get("a");
+
+/* ================= APPLICANT ================= */
+async function applicantPage(token) {
+  let data;
+  try { data = await rpc("applicant_open", { p_token: token }); }
+  catch (e) { return showError(e.message); }
+  if (!data) return showError("This link doesn't work. Ask the person who sent it for a new one.");
+  document.title = data.form_title;
+
+  const Q = data.questions || [];
+  const LOCAL = "draft-" + token;
+  let A = data.answers || {};
+  try { const local = JSON.parse(store.get(LOCAL) || "null"); if (local && local.at > (Date.parse(data.updated_at || 0) || 0) && Object.keys(local.a || {}).length >= Object.keys(A).length) A = local.a; } catch (e) {}
+  let submittedAt = data.submitted_at;
+  const isAnswered = id => !!A[id] && !A[id].skip && A[id].v !== undefined && String(A[id].v).trim() !== "";
+  const isSkipped = id => !!(A[id] && A[id].skip);
+
+  $app.replaceChildren();
+  const top = el("div", "topbar");
+  const prog = el("div", "progress"); const bar = el("div", "bar"); const pa = el("i", "a"), ps = el("i", "s"); bar.append(pa, ps);
+  const pt = el("span"); prog.append(bar, pt);
+  const saveState = el("div", "savestate", "");
+  top.append(prog, saveState);
+  const formView = el("div", "wrap"), doneView = el("div", "wrap"); doneView.hidden = true;
+  $app.append(top, formView, doneView);
+
+  if (data.result) formView.append(resultCard(data.result));
+
+  const head = el("header", "head");
+  head.append(el("div", "stamp", "OFFICIAL"), el("div", "formno", "Applicant: " + data.name), el("h1", null, data.form_title));
+  const fl = el("div", "funline");
+  if (data.intro) fl.append(el("div", null, data.intro));
+  if (data.praise) fl.append(el("div", "praise", data.praise));
+  if (fl.childNodes.length) head.append(fl);
+  if (submittedAt) head.append(el("div", "msg", "You already sent this on " + new Date(submittedAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) + ". You can still change answers and send again."));
+  formView.append(head);
+
+  const cards = {};
+  groupBySection(Q).forEach(g => {
+    const box = el("div", "section"); box.append(sectionHeader(g.section));
+    g.qs.forEach(q => box.append(buildQ(q)));
+    formView.append(box);
+  });
+
+  const hr = el("div", "hr");
+  hr.append(el("b", null, "HR USE ONLY – DO NOT FILL IN"));
+  ["Reviewed by: Me", "☐ Approved  ☐ Shortlisted for interview  ☐ Under review  ☐ Rejected  ☐ Rejected immediately – red flags", "Overall score: ____ / 100"].forEach(t => hr.append(el("div", null, t)));
+  const notice = el("div", "notice");
+  notice.append(el("div", null, "IMPORTANT: Sending this application does NOT mean you get the position. Good candidates will go through more (very serious) checks 😌"),
+                el("div", null, "By sending, you confirm everything here is true."));
+  const leftNote = el("div", "msg");
+  const sendBtn = el("button", "big", submittedAt ? "Send updated answers" : "Submit application");
+  const sendMsg = el("div", "err");
+  formView.append(hr, notice, leftNote, sendBtn, sendMsg);
+
+  function buildQ(q) {
+    const card = el("div", "q"); cards[q.id] = card;
+    const topRow = el("div", "q-top");
+    const qt = el("div", "q-text", q.text);
+    const sk = el("button", "skipbtn", "Skip"); sk.type = "button";
+    sk.addEventListener("click", () => { if (isSkipped(q.id)) delete A[q.id]; else A[q.id] = { skip: true }; refresh(q); });
+    topRow.append(qt, sk); card.append(topRow);
+    if (q.hint) card.append(el("div", "hint", q.hint));
+    const body = el("div", "body"); card.append(body);
+    if (q.kind === "single") {
+      const opts = el("div", "opts");
+      (q.options || []).forEach(o => {
+        const b = el("button", "opt"); b.type = "button";
+        b.append(el("span", "box", "✓"), el("span", null, o));
+        b.addEventListener("click", () => { if (A[q.id] && A[q.id].v === o) delete A[q.id]; else A[q.id] = { v: o }; refresh(q); });
+        opts.append(b);
+      });
+      body.append(opts);
+    } else if (q.kind === "rate") {
+      const r = el("div", "rate");
+      for (let i = 1; i <= 10; i++) {
+        const b = el("button", null, String(i)); b.type = "button";
+        b.addEventListener("click", () => { if (A[q.id] && A[q.id].v === i) delete A[q.id]; else A[q.id] = { v: i }; refresh(q); });
+        r.append(b);
+      }
+      const ends = el("div", "rate-ends"); ends.append(el("span", null, "1 = not at all"), el("span", null, "10 = expert"));
+      body.append(r, ends);
+    } else {
+      const long = q.text.length > 40;
+      const inp = long ? el("textarea") : el("input"); if (!long) inp.type = "text";
+      inp.id = "in-" + q.id; inp.placeholder = "Type here…"; inp.setAttribute("aria-label", q.text);
+      if (A[q.id] && !A[q.id].skip) inp.value = A[q.id].v || "";
+      inp.addEventListener("input", () => { if (inp.value === "") delete A[q.id]; else A[q.id] = { v: inp.value }; refresh(q); });
+      body.append(inp);
+    }
+    return card;
+  }
+  function refresh(q, quiet) {
+    const c = cards[q.id];
+    c.classList.toggle("skipped", isSkipped(q.id));
+    c.classList.toggle("done", isAnswered(q.id));
+    c.querySelector(".skipbtn").textContent = isSkipped(q.id) ? "Skipped ✕" : "Skip";
+    const v = A[q.id] && !A[q.id].skip ? A[q.id].v : undefined;
+    if (q.kind === "single") c.querySelectorAll(".opt").forEach((b, i) => b.setAttribute("aria-pressed", String(q.options[i] === v)));
+    if (q.kind === "rate") c.querySelectorAll(".rate button").forEach((b, i) => b.classList.toggle("on", i + 1 === v));
+    if (q.kind === "text" && isSkipped(q.id)) c.querySelector("input,textarea").value = "";
+    progress();
+    if (!quiet) queueSave();
+  }
+  function counts() { const a = Q.filter(q => isAnswered(q.id)).length, s = Q.filter(q => isSkipped(q.id)).length; return { a, s, left: Q.length - a - s }; }
+  function progress() {
+    const { a, s, left } = counts(), n = Q.length || 1;
+    pa.style.width = (a / n * 100) + "%"; ps.style.width = (s / n * 100) + "%";
+    pt.textContent = `${a} answered · ${s} skipped · ${left} left`;
+    leftNote.textContent = a === Q.length ? "You answered everything! Thank you, I really appreciate it 🙏✨"
+      : [left ? left + " empty" : "", s ? s + " skipped" : ""].filter(Boolean).join(" and ") + ". You can still submit, but if you answer everything, I would really appreciate it 🙏";
+  }
+
+  /* autosave */
+  let saveTimer = null, saving = false, pending = false;
+  function payload() { const o = {}; Q.forEach(q => { const x = A[q.id]; if (!x) return; if (x.skip) o[q.id] = { skip: true }; else if (String(x.v).trim() !== "") o[q.id] = { v: x.v }; }); return o; }
+  function queueSave() {
+    store.set(LOCAL, JSON.stringify({ at: Date.now(), a: A }));
+    saveState.textContent = "Saving…";
+    clearTimeout(saveTimer); saveTimer = setTimeout(() => save(false), 1200);
+  }
+  async function save(submit) {
+    if (saving) { pending = true; return null; }
+    saving = true; clearTimeout(saveTimer);
+    try {
+      const r = await rpc("applicant_save", { p_token: token, p_answers: payload(), p_submit: !!submit });
+      saveState.textContent = "Saved ✓";
+      return r;
+    } catch (e) {
+      saveState.textContent = "Not saved yet – will retry";
+      if (!submit) saveTimer = setTimeout(() => save(false), 5000);
+      if (submit) throw e;
+      return null;
+    } finally {
+      saving = false;
+      if (pending) { pending = false; queueSave(); }
+    }
+  }
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && saveTimer) save(false); });
+
+  sendBtn.addEventListener("click", async () => {
+    sendBtn.disabled = true; sendMsg.textContent = "";
+    while (saving) await new Promise(r => setTimeout(r, 200));
+    try {
+      const r = await save(true);
+      submittedAt = r && r.submitted_at;
+      showDone();
+    } catch (e) { sendMsg.textContent = e.message; }
+    sendBtn.disabled = false;
+  });
+
+  function showDone() {
+    const { a } = counts(); const all = a === Q.length;
+    doneView.replaceChildren();
+    const c = el("div", "card done-card");
+    c.style.marginTop = "16px";
+    c.append(el("div", "stamp2", "Received"));
+    c.append(el("h1", null, all ? "You answered everything! 🎉" : "Application sent! 🎉"));
+    c.append(el("div", "msg", all ? "Thank you so much, I really appreciate it 🙏✨ HR will review it very seriously 😂" : "Thank you! HR will review it very seriously 😂"));
+    c.append(el("div", "msg", "You can open this same link anytime to change your answers or to see your result once HR decides."));
+    const back = el("button", "ghost", "Back to my answers");
+    back.addEventListener("click", () => { doneView.hidden = true; formView.hidden = false; top.hidden = false; sendBtn.textContent = "Send updated answers"; });
+    c.append(back);
+    doneView.append(c);
+    formView.hidden = true; top.hidden = true; doneView.hidden = false; window.scrollTo(0, 0);
+  }
+
+  Q.forEach(q => refresh(q, true));
+  saveState.textContent = Object.keys(A).length ? "Saved ✓" : "Your answers save automatically";
+}
+
+function resultCard(res) {
+  const good = verdictGood(res.verdict);
+  const c = el("div", "result-card" + (good ? " good" : ""));
+  c.append(el("div", "formno", "HR decision"));
+  if (res.verdict) c.append(el("div", "stamp2" + (good ? " good" : ""), verdictLabel(res.verdict)));
+  if (res.score != null) { const s = el("div", "score", res.score + " / 100"); c.append(s); }
+  if (res.notes) c.append(el("div", "answer-text", res.notes));
+  if (!res.verdict && res.score == null && !res.notes) c.append(el("div", "msg", "HR is still thinking 🤔"));
+  return c;
+}
+function showError(msg) {
+  $app.replaceChildren();
+  const c = el("div", "card done-card"); c.style.marginTop = "40px";
+  c.append(el("div", "stamp2", "Oops"), el("div", null, msg));
+  const retry = el("button", "ghost", "Try again"); retry.addEventListener("click", () => location.reload());
+  c.append(retry); $app.append(c);
+}
+
+/* ================= OWNER ================= */
+const PASS_KEY = "owner-pass";
+let PASS = store.get(PASS_KEY);
+let ownerTab = "apps", pollTimer = null;
+
+async function ownerPage() {
+  document.title = "Applications · HR";
+  if (PASS) {
+    try { if (await rpc("owner_login", { p_pass: PASS })) return ownerShell(); } catch (e) { return showError(e.message); }
+    PASS = null; store.del(PASS_KEY);
+  }
+  loginScreen();
+}
+function loginScreen(msg) {
+  $app.replaceChildren();
+  const c = el("div", "head");
+  c.append(el("div", "stamp", "HR ONLY"), el("div", "formno", "Human Resources"), el("h1", null, "HR Login"));
+  const f = el("label", "f", "Passcode"); const inp = el("input"); inp.type = "password"; inp.id = "pass"; inp.autocomplete = "current-password"; f.append(inp);
+  const err = el("div", "err", msg || "");
+  const btn = el("button", "big blue", "Log in");
+  const go = async () => {
+    btn.disabled = true; err.textContent = "";
+    try {
+      if (await rpc("owner_login", { p_pass: inp.value })) { PASS = inp.value; store.set(PASS_KEY, PASS); ownerShell(); }
+      else err.textContent = "Wrong passcode.";
+    } catch (e) { err.textContent = e.message; }
+    btn.disabled = false;
+  };
+  btn.addEventListener("click", go);
+  inp.addEventListener("keydown", e => { if (e.key === "Enter") go(); });
+  c.append(f, err, btn);
+  c.append(el("div", "msg", "Got a link from someone? Open the full link they sent you instead."));
+  $app.append(c);
+}
+async function owner(name, args) {
+  try { return await rpc(name, Object.assign({ p_pass: PASS }, args || {})); }
+  catch (e) { if (e.code === "wrong_passcode") { store.del(PASS_KEY); PASS = null; loginScreen("Please log in again."); } throw e; }
+}
+
+let $main;
+function ownerShell() {
+  $app.replaceChildren();
+  const top = el("div", "topbar");
+  const tabs = el("div", "tabs");
+  [["apps", "Applicants"], ["questions", "Questions"], ["settings", "Settings"]].forEach(([k, l]) => {
+    const b = el("button", "tab", l); b.setAttribute("aria-selected", String(k === ownerTab));
+    b.addEventListener("click", () => { ownerTab = k; tabs.querySelectorAll(".tab").forEach(x => x.setAttribute("aria-selected", String(x === b))); showTab(); });
+    tabs.append(b);
+  });
+  top.append(tabs);
+  $main = el("div", "wrap");
+  $app.append(top, $main);
+  showTab();
+}
+function showTab() {
+  clearInterval(pollTimer); pollTimer = null;
+  window.scrollTo(0, 0);
+  if (ownerTab === "apps") appsTab();
+  else if (ownerTab === "questions") questionsTab();
+  else settingsTab();
+}
+function linkFor(token) { return location.origin + location.pathname + "?a=" + token; }
+
+/* --- applicants list --- */
+async function appsTab() {
+  $main.replaceChildren();
+  const head = el("div", "head");
+  head.append(el("div", "formno", "Human Resources"), el("h2", null, "Applicants"));
+  const nf = el("label", "f", "New application for"); const ni = el("input"); ni.type = "text"; ni.id = "newname"; ni.placeholder = "Their name"; nf.append(ni);
+  const nb = el("button", "big", "Create link");
+  const nerr = el("div", "err");
+  const created = el("div", "wrap");
+  nb.addEventListener("click", async () => {
+    nb.disabled = true; nerr.textContent = "";
+    try {
+      const r = await owner("owner_create_application", { p_name: ni.value });
+      const name = ni.value.trim(); ni.value = "";
+      created.replaceChildren(newLinkCard(name, r.token));
+      loadList();
+    } catch (e) { nerr.textContent = e.message; }
+    nb.disabled = false;
+  });
+  head.append(nf, nerr, nb);
+  const list = el("div", "wrap"); list.id = "applist";
+  list.append(el("div", "empty", "Loading applicants…"));
+  $main.append(head, created, list);
+  await loadList();
+  pollTimer = setInterval(loadList, 15000);
+}
+function newLinkCard(name, token) {
+  const c = el("div", "card");
+  c.append(el("div", "formno", "Link ready for " + name));
+  const link = linkFor(token);
+  c.append(el("div", "linkbox", link));
+  const msgText = "Okay I found the most ridiculous form online and I'm legally required to make you fill it 😂 no pressure: " + link;
+  const row = el("div", "row");
+  const b1 = el("button", "ghost grow", "Copy link"); b1.addEventListener("click", () => copyText(link, b1));
+  const b2 = el("button", "ghost grow", "Copy with message"); b2.addEventListener("click", () => copyText(msgText, b2));
+  row.append(b1, b2); c.append(row);
+  return c;
+}
+function statusPill(a) {
+  if (a.submitted_at) {
+    const edited = a.updated_at && new Date(a.updated_at) - new Date(a.submitted_at) > 5000;
+    return el("span", "pill sub", edited ? "Submitted · editing" : "Submitted");
+  }
+  if (a.answered || a.skipped) return el("span", "pill filling", "Filling");
+  if (a.opened_at) return el("span", "pill filling", "Opened");
+  return el("span", "pill new", "Not opened");
+}
+async function loadList() {
+  const list = document.getElementById("applist"); if (!list) return;
+  let apps;
+  try { apps = await owner("owner_list_applications"); } catch (e) { list.replaceChildren(el("div", "err", e.message)); return; }
+  list.replaceChildren();
+  if (!apps.length) { list.append(el("div", "empty", "No applicants yet. Type a name above and tap Create link, then send them the link.")); return; }
+  apps.forEach(a => {
+    const b = el("button", "card app-item");
+    const r1 = el("div", "row"); const nm = el("b", "grow", a.name); r1.append(nm, statusPill(a));
+    if (a.verdict) r1.append(el("span", "pill verdict", verdictLabel(a.verdict)));
+    const bar = el("div", "bar"); const pa = el("i", "a"), ps = el("i", "s");
+    pa.style.width = (a.answered / a.total * 100) + "%"; ps.style.width = (a.skipped / a.total * 100) + "%"; bar.append(pa, ps);
+    const meta = el("div", "meta", `${a.answered}/${a.total} answered · ${a.skipped} skipped` +
+      (a.updated_at ? " · active " + when(a.updated_at) : a.opened_at ? " · opened " + when(a.opened_at) : " · sent " + when(a.created_at)) +
+      (a.score != null ? " · score " + a.score + "/100" : ""));
+    b.append(r1, bar, meta);
+    b.addEventListener("click", () => detailView(a.id));
+    list.append(b);
+  });
+}
+
+/* --- one applicant --- */
+async function detailView(id) {
+  clearInterval(pollTimer); pollTimer = null;
+  $main.replaceChildren(el("div", "empty", "Loading…"));
+  window.scrollTo(0, 0);
+  let a;
+  try { a = await owner("owner_get_application", { p_id: id }); } catch (e) { $main.replaceChildren(el("div", "err", e.message)); return; }
+  if (!a) { appsTab(); return; }
+  $main.replaceChildren();
+  const back = el("button", "ghost", "← All applicants"); back.addEventListener("click", appsTab);
+  back.style.marginTop = "12px";
+  const head = el("div", "head");
+  const r1 = el("div", "row"); r1.append(el("h2", "grow", a.name), statusPill({ submitted_at: a.submitted_at, updated_at: a.updated_at, answered: a.answered_count, skipped: a.skipped_count, opened_at: a.opened_at }));
+  head.append(el("div", "formno", "Applicant file"), r1);
+  const times = [["Sent", a.created_at], ["Opened", a.opened_at], ["Last activity", a.updated_at], ["Submitted", a.submitted_at]].filter(x => x[1]).map(x => x[0] + ": " + when(x[1])).join(" · ");
+  head.append(el("div", "meta", times));
+  const link = linkFor(a.token);
+  head.append(el("div", "linkbox", link));
+  const cl = el("button", "ghost", "Copy their link"); cl.addEventListener("click", () => copyText(link, cl)); head.append(cl);
+  const Q = a.questions || [], ans = a.answers || {};
+  const sum = el("div", "sum");
+  [[a.answered_count, "Answered"], [a.skipped_count, "Skipped"], [Q.length - a.answered_count - a.skipped_count, "Left empty"]].forEach(([n, l]) => { const d = el("div"); d.append(el("b", null, String(n)), el("span", null, l)); sum.append(d); });
+  const refresh = el("button", "ghost", "Refresh answers"); refresh.addEventListener("click", () => detailView(id));
+  $main.append(back, head, sum, reviewPanel(a), refresh);
+
+  groupBySection(Q).forEach(g => {
+    const box = el("div", "section"); box.append(sectionHeader(g.section));
+    g.qs.forEach(q => {
+      const r = ans[q.id];
+      const card = el("div", "q" + (r && r.skip ? " skipped" : r ? " done" : ""));
+      card.append(el("div", "q-text", q.text));
+      if (r && r.skip) card.append(el("span", "pill skip badge", "Skipped"));
+      else if (!r) card.append(el("span", "pill new badge", "No answer"));
+      if (q.kind === "single") {
+        (q.options || []).forEach(o => { const on = r && !r.skip && r.v === o; const row = el("div", "ro" + (on ? " picked" : "")); row.append(el("span", "box", on ? "✓" : ""), el("span", null, o)); card.append(row); });
+      } else if (q.kind === "rate") {
+        card.append(r && !r.skip ? el("div", "answer-text", r.v + " / 10") : el("div", "rate-ends", "Scale: 1 to 10"));
+      } else if (r && !r.skip) card.append(el("div", "answer-text", String(r.v)));
+      box.append(card);
+    });
+    $main.append(box);
+  });
+
+  const del = el("button", "ghost danger", "Delete this applicant");
+  const confirmBox = el("div", "confirm"); confirmBox.hidden = true;
+  confirmBox.append(el("div", null, `Delete ${a.name} and all their answers? This can't be undone.`));
+  const yes = el("button", "ghost danger", "Yes, delete"), no = el("button", "ghost", "Cancel");
+  const cr = el("div", "row"); cr.append(yes, no); confirmBox.append(cr);
+  del.addEventListener("click", () => { confirmBox.hidden = false; del.hidden = true; });
+  no.addEventListener("click", () => { confirmBox.hidden = true; del.hidden = false; });
+  yes.addEventListener("click", async () => { try { await owner("owner_delete_application", { p_id: id }); toast("Deleted"); appsTab(); } catch (e) { toast(e.message); } });
+  del.style.marginTop = "24px";
+  $main.append(del, confirmBox);
+}
+function reviewPanel(a) {
+  const c = el("div", "hr");
+  c.append(el("b", null, "HR USE ONLY"));
+  let verdict = a.verdict || "";
+  const vg = el("div", "verdicts");
+  VERDICTS.forEach(([k, l, good]) => {
+    const b = el("button", good ? "good" : "", l); b.type = "button";
+    b.classList.toggle("on", verdict === k);
+    b.addEventListener("click", () => { verdict = verdict === k ? "" : k; vg.querySelectorAll("button").forEach((x, i) => x.classList.toggle("on", VERDICTS[i][0] === verdict)); });
+    vg.append(b);
+  });
+  const sf = el("label", "f", "Overall score / 100"); const si = el("input"); si.type = "number"; si.min = 0; si.max = 100; si.inputMode = "numeric"; si.id = "score"; if (a.score != null) si.value = a.score; sf.append(si);
+  const nf = el("label", "f", "Notes"); const nt = el("textarea"); nt.id = "notes"; nt.value = a.notes || ""; nf.append(nt);
+  const tg = el("label", "toggle"); const cb = el("input"); cb.type = "checkbox"; cb.id = "share"; cb.checked = !!a.result_shared;
+  tg.append(cb, el("span", null, "Show this result to them (verdict, score and notes)"));
+  const save = el("button", "big", "Save HR decision");
+  const err = el("div", "err");
+  save.addEventListener("click", async () => {
+    err.textContent = "";
+    let score = si.value === "" ? null : Math.round(Number(si.value));
+    if (score != null && (isNaN(score) || score < 0 || score > 100)) { err.textContent = "Score must be between 0 and 100."; return; }
+    save.disabled = true;
+    try { await owner("owner_review", { p_id: a.id, p_verdict: verdict, p_score: score, p_notes: nt.value, p_share: cb.checked }); toast(cb.checked ? "Saved · they can see it now" : "Saved · only you can see it"); }
+    catch (e) { err.textContent = e.message; }
+    save.disabled = false;
+  });
+  c.append(vg, sf, nf, tg, err, save);
+  return c;
+}
+
+/* --- questions editor --- */
+let QS = [];
+async function questionsTab() {
+  $main.replaceChildren(el("div", "empty", "Loading questions…"));
+  try { QS = await owner("owner_list_questions"); } catch (e) { $main.replaceChildren(el("div", "err", e.message)); return; }
+  renderQuestions();
+}
+function renderQuestions() {
+  $main.replaceChildren();
+  const head = el("div", "head");
+  head.append(el("div", "formno", `${QS.length} questions`), el("h2", null, "Questions"));
+  head.append(el("div", "msg", "Changes here only affect NEW links. People who already have a link keep the questions they got."));
+  const add = el("button", "big blue", "+ Add a question");
+  add.addEventListener("click", () => editQuestion(null));
+  head.append(add);
+  $main.append(head);
+  groupBySection(QS).forEach(g => {
+    const box = el("div", "section"); box.append(sectionHeader(g.section));
+    g.qs.forEach(q => {
+      const c = el("div", "card");
+      const row = el("div", "qrow");
+      const t = el("div", "t");
+      t.append(el("div", "k", { text: "Written", single: "Choice", rate: "1–10" }[q.kind]), el("div", null, q.text));
+      if (q.kind === "single") t.append(el("div", "meta", (q.options || []).join(" · ")));
+      const ctl = el("div", "ctl");
+      const idx = QS.indexOf(q);
+      const up = el("button", "small", "↑"), dn = el("button", "small", "↓"), ed = el("button", "small", "✎");
+      up.setAttribute("aria-label", "Move up"); dn.setAttribute("aria-label", "Move down"); ed.setAttribute("aria-label", "Edit");
+      up.disabled = idx === 0; dn.disabled = idx === QS.length - 1;
+      up.addEventListener("click", () => move(idx, -1)); dn.addEventListener("click", () => move(idx, 1));
+      ed.addEventListener("click", () => editQuestion(q));
+      ctl.append(up, dn, ed);
+      row.append(t, ctl); c.append(row); box.append(c);
+    });
+    $main.append(box);
+  });
+}
+async function move(i, d) {
+  const j = i + d; if (j < 0 || j >= QS.length) return;
+  const a = QS[i], b = QS[j];
+  if (a.section !== b.section) a.section = b.section; // moving across a section boundary joins that section
+  [QS[i], QS[j]] = [QS[j], QS[i]];
+  renderQuestions();
+  try {
+    await owner("owner_save_question", { p_id: a.id, p_section: a.section, p_kind: a.kind, p_text: a.text, p_hint: a.hint, p_options: a.options, p_position: null });
+    await owner("owner_reorder_questions", { p_ids: QS.map(q => q.id) });
+  } catch (e) { toast(e.message); questionsTab(); }
+}
+function editQuestion(q) {
+  window.scrollTo(0, 0);
+  const isNew = !q;
+  q = q || { section: QS.length ? QS[QS.length - 1].section : "Section 1 · Questions", kind: "text", text: "", hint: "", options: [] };
+  $main.replaceChildren();
+  const c = el("div", "head");
+  c.append(el("div", "formno", isNew ? "New question" : "Edit question"));
+  const sections = [...new Set(QS.map(x => x.section))];
+  const sf = el("label", "f", "Section"); const ss = el("select"); ss.id = "qsection";
+  sections.forEach(s => { const o = el("option", null, s); o.value = s; ss.append(o); });
+  const newOpt = el("option", null, "+ New section…"); newOpt.value = "__new"; ss.append(newOpt);
+  ss.value = sections.includes(q.section) ? q.section : "__new";
+  const sn = el("input"); sn.type = "text"; sn.id = "qsectionnew"; sn.placeholder = "e.g. Section 13 · Bonus round"; sn.hidden = ss.value !== "__new";
+  if (ss.value === "__new") sn.value = q.section || "";
+  ss.addEventListener("change", () => { sn.hidden = ss.value !== "__new"; });
+  sf.append(ss, sn);
+  const kf = el("label", "f", "Answer type"); const ks = el("select"); ks.id = "qkind";
+  [["text", "Written answer"], ["single", "Choose one option"], ["rate", "Rating 1 to 10"]].forEach(([v, l]) => { const o = el("option", null, l); o.value = v; ks.append(o); });
+  ks.value = q.kind; kf.append(ks);
+  const tf = el("label", "f", "Question"); const ti = el("textarea"); ti.id = "qtext"; ti.value = q.text; tf.append(ti);
+  const hf = el("label", "f", "Small note under it (optional)"); const hi = el("input"); hi.type = "text"; hi.id = "qhint"; hi.value = q.hint || ""; hf.append(hi);
+  const of = el("label", "f", "Options – one per line"); const oi = el("textarea"); oi.id = "qopts"; oi.rows = 5; oi.value = (q.options || []).join("\n"); of.append(oi);
+  const syncKind = () => { of.hidden = ks.value !== "single"; };
+  ks.addEventListener("change", syncKind); syncKind();
+  const err = el("div", "err");
+  const save = el("button", "big blue", "Save question");
+  const cancel = el("button", "ghost", "Cancel");
+  cancel.addEventListener("click", renderQuestions);
+  save.addEventListener("click", async () => {
+    err.textContent = ""; save.disabled = true;
+    const section = ss.value === "__new" ? sn.value.trim() : ss.value;
+    const opts = oi.value.split("\n").map(s => s.trim()).filter(Boolean);
+    try {
+      await owner("owner_save_question", { p_id: isNew ? null : q.id, p_section: section, p_kind: ks.value, p_text: ti.value, p_hint: hi.value, p_options: opts, p_position: isNew ? sectionEndPosition(section) : null });
+      toast("Saved ✓");
+      await questionsTab();
+    } catch (e) { err.textContent = e.message; save.disabled = false; }
+  });
+  c.append(sf, kf, tf, hf, of, err, save, cancel);
+  $main.append(c);
+  if (!isNew) {
+    const del = el("button", "ghost danger", "Delete this question");
+    const cb = el("div", "confirm"); cb.hidden = true;
+    cb.append(el("div", null, "Delete this question? People who already have a link keep it."));
+    const yes = el("button", "ghost danger", "Yes, delete"), no = el("button", "ghost", "Cancel");
+    const r = el("div", "row"); r.append(yes, no); cb.append(r);
+    del.addEventListener("click", () => { cb.hidden = false; del.hidden = true; });
+    no.addEventListener("click", () => { cb.hidden = true; del.hidden = false; });
+    yes.addEventListener("click", async () => { try { await owner("owner_delete_question", { p_id: q.id }); toast("Deleted"); questionsTab(); } catch (e) { toast(e.message); } });
+    $main.append(del, cb);
+  }
+}
+function sectionEndPosition(section) {
+  // new question goes at the end of its section (or at the very end for a new section)
+  let last = -1; QS.forEach((x, i) => { if (x.section === section) last = i; });
+  if (last < 0) return null;
+  const here = QS[last].position, next = QS[last + 1] ? QS[last + 1].position : here + 20;
+  if (next - here >= 2) return Math.floor((here + next) / 2);
+  return null;
+}
+
+/* --- settings --- */
+async function settingsTab() {
+  $main.replaceChildren(el("div", "empty", "Loading…"));
+  let s; try { s = await owner("owner_get_settings"); } catch (e) { $main.replaceChildren(el("div", "err", e.message)); return; }
+  $main.replaceChildren();
+  const c = el("div", "head");
+  c.append(el("div", "formno", "Form settings"), el("h2", null, "Title & messages"));
+  c.append(el("div", "msg", "These are used for NEW links."));
+  const tf = el("label", "f", "Form title"); const ti = el("input"); ti.type = "text"; ti.id = "stitle"; ti.value = s.form_title; tf.append(ti);
+  const inf = el("label", "f", "Intro line"); const ii = el("textarea"); ii.id = "sintro"; ii.value = s.intro; inf.append(ii);
+  const pf = el("label", "f", "\"Please answer everything\" line"); const pi = el("textarea"); pi.id = "spraise"; pi.value = s.praise; pf.append(pi);
+  const err = el("div", "err");
+  const save = el("button", "big blue", "Save");
+  save.addEventListener("click", async () => {
+    err.textContent = ""; save.disabled = true;
+    try { await owner("owner_update_settings", { p_title: ti.value, p_intro: ii.value, p_praise: pi.value }); toast("Saved ✓"); }
+    catch (e) { err.textContent = e.message; }
+    save.disabled = false;
+  });
+  c.append(tf, inf, pf, err, save);
+  const out = el("button", "ghost", "Log out on this phone");
+  out.addEventListener("click", () => { store.del(PASS_KEY); PASS = null; clearInterval(pollTimer); loginScreen(); });
+  $main.append(c, out);
+}
+
+/* ===== start ===== */
+if (TOKEN) applicantPage(TOKEN); else ownerPage();
+</script>
+</body>
+</html>

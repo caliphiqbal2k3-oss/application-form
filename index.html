@@ -15,8 +15,9 @@
   --paper: #f3f5f9; --sheet: #ffffff; --ink: #1b2440; --ink-soft: #5a6383; --rule: #d6dcea;
   --blue: #2d4fd6; --blue-soft: #e6ebfc; --stamp: #d23a3a; --stamp-soft: #fbe7e5;
   --skip: #8a7a1f; --skip-soft: #f7f0cc; --good: #1f8a4c; --good-soft: #def3e6;
-  --font: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --cjk: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC";
+  --font: "Bricolage Grotesque", "Avenir Next", "Segoe UI", var(--cjk), system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, var(--cjk), monospace;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -26,7 +27,20 @@
     --skip: #e3cf6b; --skip-soft: #36311a; --good: #5fd18f; --good-soft: #17301f; color-scheme: dark;
   }
 }
+:root:lang(zh-Hant) { --cjk: "PingFang TC", "Heiti TC", "Microsoft JhengHei", "Noto Sans TC"; }
 * { box-sizing: border-box; }
+.langs { display: flex; gap: 4px; background: var(--sheet); border: 1px solid var(--rule); border-radius: 999px; padding: 3px; align-self: center; }
+.langs button { font: 600 13px var(--font); padding: 5px 12px; border-radius: 999px; border: 0; background: transparent; color: var(--ink-soft); cursor: pointer; }
+.langs button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.langs button:lang(zh-Hant) { font-family: "PingFang TC", "Heiti TC", "Microsoft JhengHei", var(--font); }
+details.zh { border: 1px solid var(--rule); border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; }
+details.zh > summary { font: 600 14px var(--mono); cursor: pointer; }
+details.zh[open] > summary { margin-bottom: 8px; }
+.zhbox { display: flex; flex-direction: column; gap: 10px; padding-block: 8px; border-top: 1px dashed var(--rule); }
+.zhbox:lang(zh-Hant) { font-family: "PingFang TC", "Heiti TC", "Microsoft JhengHei", var(--font); }
+.f .meta { text-transform: none; letter-spacing: 0; font-weight: 400; }
+a.small { text-decoration: none; display: inline-block; align-self: flex-start; }
+.tr-link { color: var(--blue); }
 html, body { margin: 0; }
 body { background: var(--paper); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.5;
   padding-inline: 16px; padding-block: env(safe-area-inset-top, 0px) calc(48px + env(safe-area-inset-bottom, 0px)); }
@@ -168,7 +182,7 @@ async function rpc(name, args) {
       headers: { apikey: SB_KEY, "Content-Type": "application/json" },
       body: JSON.stringify(args || {})
     });
-  } catch (e) { throw new Error("No internet connection. Check your connection and try again."); }
+  } catch (e) { const er = new Error("No internet connection. Check your connection and try again."); er.code = "offline"; throw er; }
   const t = await r.text();
   let data = null; try { data = t ? JSON.parse(t) : null; } catch (e) { data = t; }
   if (!r.ok) {
@@ -215,74 +229,197 @@ const verdictGood = v => !!(VERDICTS.find(x => x[0] === v) || [, , false])[2];
 const params = new URLSearchParams(location.search);
 const TOKEN = params.get("a");
 
+/* ===== languages ===== */
+const LANGS = [["en", "English", "EN"], ["zh-Hans", "简体中文", "简"], ["zh-Hant", "繁體中文", "繁"]];
+const langName = l => (LANGS.find(x => x[0] === l) || LANGS[0])[1];
+const langShort = l => (LANGS.find(x => x[0] === l) || LANGS[0])[2];
+const GT_CODE = { "zh-Hans": "zh-CN", "zh-Hant": "zh-TW", en: "en" };
+const STR = {
+  en: {
+    stamp: "OFFICIAL", applicant: "Applicant: ", skip: "Skip", skipped: "Skipped ✕", typeHere: "Type here…",
+    rateLow: "1 = not at all", rateHigh: "10 = expert",
+    progress: (a, s, l) => `${a} answered · ${s} skipped · ${l} left`,
+    allDone: "You answered everything! Thank you, I really appreciate it 🙏✨",
+    leftNote: (l, s) => [l ? l + " empty" : "", s ? s + " skipped" : ""].filter(Boolean).join(" and ") + ". You can still submit, but if you answer everything, I would really appreciate it 🙏",
+    alreadySent: d => `You already sent this on ${d}. You can still change answers and send again.`,
+    hrTitle: "HR USE ONLY – DO NOT FILL IN",
+    hrLines: ["Reviewed by: Me", "☐ Approved  ☐ Shortlisted for interview  ☐ Under review  ☐ Rejected  ☐ Rejected immediately – red flags", "Overall score: ____ / 100"],
+    notice: ["IMPORTANT: Sending this application does NOT mean you get the position. Good candidates will go through more (very serious) checks 😌", "By sending, you confirm everything here is true."],
+    submit: "Submit application", resend: "Send updated answers",
+    saving: "Saving…", saved: "Saved ✓", notSaved: "Not saved yet – will retry", autosave: "Your answers save automatically",
+    received: "Received", doneAllTitle: "You answered everything! 🎉", doneTitle: "Application sent! 🎉",
+    doneAllMsg: "Thank you so much, I really appreciate it 🙏✨ HR will review it very seriously 😂",
+    doneMsg: "Thank you! HR will review it very seriously 😂",
+    reopen: "You can open this same link anytime to change your answers or to see your result once HR decides.",
+    back: "Back to my answers", hrDecision: "HR decision", thinking: "HR is still thinking 🤔",
+    verdicts: { approved: "Approved ✅", shortlisted: "Shortlisted for interview", under_review: "Under review", rejected: "Rejected", red_flags: "Rejected – red flags 🚩" },
+    badLink: "This link doesn't work. Ask the person who sent it for a new one.",
+    oops: "Oops", retry: "Try again", offline: "No internet connection. Check your connection and try again.",
+    invite: link => "Okay I found the most ridiculous form online and I'm legally required to make you fill it 😂 no pressure: " + link
+  },
+  "zh-Hans": {
+    stamp: "官方认证", applicant: "申请人：", skip: "跳过", skipped: "已跳过 ✕", typeHere: "在这里输入…",
+    rateLow: "1 = 完全不行", rateHigh: "10 = 超级高手",
+    progress: (a, s, l) => `已答 ${a} · 跳过 ${s} · 剩下 ${l}`,
+    allDone: "你全部都答完了！谢谢你，我真的很感激 🙏✨",
+    leftNote: (l, s) => [l ? `还有 ${l} 题没填` : "", s ? `跳过了 ${s} 题` : ""].filter(Boolean).join("，") + "。你仍然可以提交，不过如果你全部回答，我会非常感激 🙏",
+    alreadySent: d => `你已经在 ${d} 提交过了。你仍然可以修改答案，再提交一次。`,
+    hrTitle: "HR 专用 – 请勿填写",
+    hrLines: ["审核人：我", "☐ 录取  ☐ 进入面试名单  ☐ 审核中  ☐ 不录取  ☐ 立即淘汰 – 发现危险信号 🚩", "总分：____ / 100"],
+    notice: ["重要提示：提交申请不代表你已被录用。优秀的候选人还要通过更多（非常严肃的）考核 😌", "提交即表示你确认以上内容全部属实。"],
+    submit: "提交申请", resend: "提交修改后的答案",
+    saving: "保存中…", saved: "已保存 ✓", notSaved: "还没保存 – 会自动重试", autosave: "你的答案会自动保存",
+    received: "已收到", doneAllTitle: "你全部答完了！🎉", doneTitle: "申请已提交！🎉",
+    doneAllMsg: "非常感谢你，我真的很感激 🙏✨ HR 会非常认真地审核 😂",
+    doneMsg: "谢谢你！HR 会非常认真地审核 😂",
+    reopen: "你可以随时打开这个链接修改答案，HR 做出决定后，也可以在这里看到结果。",
+    back: "返回我的答案", hrDecision: "HR 的决定", thinking: "HR 还在考虑中 🤔",
+    verdicts: { approved: "录取 ✅", shortlisted: "进入面试名单", under_review: "审核中", rejected: "不录取", red_flags: "淘汰 – 发现危险信号 🚩" },
+    badLink: "这个链接无法使用。请向发链接给你的人要一个新的。",
+    oops: "哎呀", retry: "再试一次", offline: "没有网络连接，请检查后再试。",
+    invite: link => "我在网上发现了一个超搞笑的表格，按规定你必须填一下 😂 没有压力哦：" + link
+  },
+  "zh-Hant": {
+    stamp: "官方認證", applicant: "應徵者：", skip: "跳過", skipped: "已跳過 ✕", typeHere: "在這裡輸入…",
+    rateLow: "1 = 完全不行", rateHigh: "10 = 超級高手",
+    progress: (a, s, l) => `已答 ${a} · 跳過 ${s} · 剩下 ${l}`,
+    allDone: "你全部都答完了！謝謝你，我真的很感激 🙏✨",
+    leftNote: (l, s) => [l ? `還有 ${l} 題沒填` : "", s ? `跳過了 ${s} 題` : ""].filter(Boolean).join("，") + "。你還是可以送出，不過如果你全部回答，我會非常感激 🙏",
+    alreadySent: d => `你已經在 ${d} 送出過了。你還是可以修改答案，再送出一次。`,
+    hrTitle: "HR 專用 – 請勿填寫",
+    hrLines: ["審核人：我", "☐ 錄取  ☐ 進入面試名單  ☐ 審核中  ☐ 不錄取  ☐ 立即淘汰 – 發現危險信號 🚩", "總分：____ / 100"],
+    notice: ["重要提醒：送出應徵不代表你已被錄取。優秀的應徵者還要通過更多（非常嚴肅的）考核 😌", "送出即表示你確認以上內容全部屬實。"],
+    submit: "送出應徵", resend: "送出修改後的答案",
+    saving: "儲存中…", saved: "已儲存 ✓", notSaved: "還沒儲存 – 會自動重試", autosave: "你的答案會自動儲存",
+    received: "已收到", doneAllTitle: "你全部答完了！🎉", doneTitle: "應徵已送出！🎉",
+    doneAllMsg: "非常謝謝你，我真的很感激 🙏✨ HR 會非常認真地審核 😂",
+    doneMsg: "謝謝你！HR 會非常認真地審核 😂",
+    reopen: "你可以隨時打開這個連結修改答案，HR 做出決定後，也可以在這裡看到結果。",
+    back: "回到我的答案", hrDecision: "HR 的決定", thinking: "HR 還在考慮中 🤔",
+    verdicts: { approved: "錄取 ✅", shortlisted: "進入面試名單", under_review: "審核中", rejected: "不錄取", red_flags: "淘汰 – 發現危險信號 🚩" },
+    badLink: "這個連結無法使用。請跟傳連結給你的人要一個新的。",
+    oops: "哎呀", retry: "再試一次", offline: "沒有網路連線，請檢查後再試。",
+    invite: link => "我在網路上發現一個超好笑的表格，依規定你必須填一下 😂 沒有壓力喔：" + link
+  }
+};
+function guessLang() {
+  const n = (navigator.language || "en").toLowerCase();
+  if (!n.startsWith("zh")) return "en";
+  return /tw|hk|mo|hant/.test(n) ? "zh-Hant" : "zh-Hans";
+}
+function setDocLang(l) { document.documentElement.lang = l; }
+
 /* ================= APPLICANT ================= */
 async function applicantPage(token) {
+  const LANG_KEY = "lang-" + token;
+  let lang = store.get(LANG_KEY) || guessLang();
   let data;
   try { data = await rpc("applicant_open", { p_token: token }); }
-  catch (e) { return showError(e.message); }
-  if (!data) return showError("This link doesn't work. Ask the person who sent it for a new one.");
-  document.title = data.form_title;
+  catch (e) { setDocLang(lang); return showError(e.code === "offline" ? STR[lang].offline : e.message, lang); }
+  if (!data) { setDocLang(lang); return showError(STR[lang].badLink, lang); }
 
   const Q = data.questions || [];
+  const avail = LANGS.map(x => x[0]).filter(l => l === "en" ||
+    Q.some(q => q.tr && q.tr[l]) || (data.tr && data.tr[l]));
+  lang = store.get(LANG_KEY) || data.lang || "en";
+  if (!avail.includes(lang)) lang = "en";
+
   const LOCAL = "draft-" + token;
   let A = data.answers || {};
-  try { const local = JSON.parse(store.get(LOCAL) || "null"); if (local && local.at > (Date.parse(data.updated_at || 0) || 0) && Object.keys(local.a || {}).length >= Object.keys(A).length) A = local.a; } catch (e) {}
+  try {
+    const local = JSON.parse(store.get(LOCAL) || "null");
+    if (local && local.at > (Date.parse(data.updated_at || 0) || 0)) A = local.a || A;
+  } catch (e) {}
   let submittedAt = data.submitted_at;
+  let saveKey = Object.keys(A).length ? "saved" : "autosave";
   const isAnswered = id => !!A[id] && !A[id].skip && A[id].v !== undefined && String(A[id].v).trim() !== "";
   const isSkipped = id => !!(A[id] && A[id].skip);
 
-  $app.replaceChildren();
-  const top = el("div", "topbar");
-  const prog = el("div", "progress"); const bar = el("div", "bar"); const pa = el("i", "a"), ps = el("i", "s"); bar.append(pa, ps);
-  const pt = el("span"); prog.append(bar, pt);
-  const saveState = el("div", "savestate", "");
-  top.append(prog, saveState);
-  const formView = el("div", "wrap"), doneView = el("div", "wrap"); doneView.hidden = true;
-  $app.append(top, formView, doneView);
+  /* translated text */
+  const S = () => STR[lang];
+  const T = q => (lang !== "en" && q.tr && q.tr[lang]) || {};
+  const qText = q => T(q).text || q.text;
+  const qHint = q => q.hint ? (T(q).hint || q.hint) : (T(q).hint || null);
+  const qOpt = (q, i) => (T(q).options && T(q).options[i]) || q.options[i];
+  const qSection = q => T(q).section || q.section;
+  const st = k => (lang !== "en" && data.tr && data.tr[lang] && data.tr[lang][k]) || data[k];
 
-  if (data.result) formView.append(resultCard(data.result));
+  let ui = {}, cards = {};
+  function render() {
+    setDocLang(lang);
+    document.title = st("form_title");
+    cards = {};
+    $app.replaceChildren();
+    const top = el("div", "topbar");
+    if (avail.length > 1) {
+      const sw = el("div", "langs"); sw.setAttribute("role", "group"); sw.setAttribute("aria-label", "Language / 语言");
+      avail.forEach(l => {
+        const b = el("button", null, langName(l)); b.type = "button"; b.lang = l;
+        b.setAttribute("aria-pressed", String(l === lang));
+        b.addEventListener("click", () => {
+          if (l === lang) return;
+          const frac = window.scrollY / Math.max(1, document.documentElement.scrollHeight);
+          lang = l; store.set(LANG_KEY, l); render();
+          window.scrollTo(0, frac * document.documentElement.scrollHeight);
+        });
+        sw.append(b);
+      });
+      top.append(sw);
+    }
+    const prog = el("div", "progress"); const bar = el("div", "bar"); ui.pa = el("i", "a"); ui.ps = el("i", "s"); bar.append(ui.pa, ui.ps);
+    ui.pt = el("span"); prog.append(bar, ui.pt);
+    ui.saveState = el("div", "savestate", S()[saveKey]);
+    top.append(prog, ui.saveState);
+    ui.top = top;
+    ui.formView = el("div", "wrap"); ui.doneView = el("div", "wrap"); ui.doneView.hidden = true;
+    $app.append(top, ui.formView, ui.doneView);
+    const F = ui.formView;
 
-  const head = el("header", "head");
-  head.append(el("div", "stamp", "OFFICIAL"), el("div", "formno", "Applicant: " + data.name), el("h1", null, data.form_title));
-  const fl = el("div", "funline");
-  if (data.intro) fl.append(el("div", null, data.intro));
-  if (data.praise) fl.append(el("div", "praise", data.praise));
-  if (fl.childNodes.length) head.append(fl);
-  if (submittedAt) head.append(el("div", "msg", "You already sent this on " + new Date(submittedAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) + ". You can still change answers and send again."));
-  formView.append(head);
+    if (data.result) F.append(resultCard(data.result, lang));
+    const head = el("header", "head");
+    head.append(el("div", "stamp", S().stamp), el("div", "formno", S().applicant + data.name), el("h1", null, st("form_title")));
+    const fl = el("div", "funline");
+    if (st("intro")) fl.append(el("div", null, st("intro")));
+    if (st("praise")) fl.append(el("div", "praise", st("praise")));
+    if (fl.childNodes.length) head.append(fl);
+    if (submittedAt) head.append(el("div", "msg", S().alreadySent(new Date(submittedAt).toLocaleString(lang, { dateStyle: "medium", timeStyle: "short" }))));
+    F.append(head);
 
-  const cards = {};
-  groupBySection(Q).forEach(g => {
-    const box = el("div", "section"); box.append(sectionHeader(g.section));
-    g.qs.forEach(q => box.append(buildQ(q)));
-    formView.append(box);
-  });
+    groupBySection(Q).forEach(g => {
+      const box = el("div", "section"); box.append(sectionHeader(qSection(g.qs[0])));
+      g.qs.forEach(q => box.append(buildQ(q)));
+      F.append(box);
+    });
 
-  const hr = el("div", "hr");
-  hr.append(el("b", null, "HR USE ONLY – DO NOT FILL IN"));
-  ["Reviewed by: Me", "☐ Approved  ☐ Shortlisted for interview  ☐ Under review  ☐ Rejected  ☐ Rejected immediately – red flags", "Overall score: ____ / 100"].forEach(t => hr.append(el("div", null, t)));
-  const notice = el("div", "notice");
-  notice.append(el("div", null, "IMPORTANT: Sending this application does NOT mean you get the position. Good candidates will go through more (very serious) checks 😌"),
-                el("div", null, "By sending, you confirm everything here is true."));
-  const leftNote = el("div", "msg");
-  const sendBtn = el("button", "big", submittedAt ? "Send updated answers" : "Submit application");
-  const sendMsg = el("div", "err");
-  formView.append(hr, notice, leftNote, sendBtn, sendMsg);
+    const hr = el("div", "hr");
+    hr.append(el("b", null, S().hrTitle));
+    S().hrLines.forEach(t => hr.append(el("div", null, t)));
+    const notice = el("div", "notice");
+    S().notice.forEach(t => notice.append(el("div", null, t)));
+    ui.leftNote = el("div", "msg");
+    ui.sendBtn = el("button", "big", submittedAt ? S().resend : S().submit);
+    ui.sendMsg = el("div", "err");
+    ui.sendBtn.addEventListener("click", onSend);
+    F.append(hr, notice, ui.leftNote, ui.sendBtn, ui.sendMsg);
+    Q.forEach(q => refresh(q, true));
+  }
 
   function buildQ(q) {
     const card = el("div", "q"); cards[q.id] = card;
     const topRow = el("div", "q-top");
-    const qt = el("div", "q-text", q.text);
-    const sk = el("button", "skipbtn", "Skip"); sk.type = "button";
+    const qt = el("div", "q-text", qText(q));
+    const sk = el("button", "skipbtn", S().skip); sk.type = "button";
     sk.addEventListener("click", () => { if (isSkipped(q.id)) delete A[q.id]; else A[q.id] = { skip: true }; refresh(q); });
     topRow.append(qt, sk); card.append(topRow);
-    if (q.hint) card.append(el("div", "hint", q.hint));
+    const hint = qHint(q);
+    if (hint) card.append(el("div", "hint", hint));
     const body = el("div", "body"); card.append(body);
     if (q.kind === "single") {
       const opts = el("div", "opts");
-      (q.options || []).forEach(o => {
+      (q.options || []).forEach((o, i) => {
         const b = el("button", "opt"); b.type = "button";
-        b.append(el("span", "box", "✓"), el("span", null, o));
+        b.append(el("span", "box", "✓"), el("span", null, qOpt(q, i)));
+        // answers are always saved with the English option, so HR reads them in English
         b.addEventListener("click", () => { if (A[q.id] && A[q.id].v === o) delete A[q.id]; else A[q.id] = { v: o }; refresh(q); });
         opts.append(b);
       });
@@ -294,12 +431,12 @@ async function applicantPage(token) {
         b.addEventListener("click", () => { if (A[q.id] && A[q.id].v === i) delete A[q.id]; else A[q.id] = { v: i }; refresh(q); });
         r.append(b);
       }
-      const ends = el("div", "rate-ends"); ends.append(el("span", null, "1 = not at all"), el("span", null, "10 = expert"));
+      const ends = el("div", "rate-ends"); ends.append(el("span", null, S().rateLow), el("span", null, S().rateHigh));
       body.append(r, ends);
     } else {
       const long = q.text.length > 40;
       const inp = long ? el("textarea") : el("input"); if (!long) inp.type = "text";
-      inp.id = "in-" + q.id; inp.placeholder = "Type here…"; inp.setAttribute("aria-label", q.text);
+      inp.id = "in-" + q.id; inp.placeholder = S().typeHere; inp.setAttribute("aria-label", qText(q));
       if (A[q.id] && !A[q.id].skip) inp.value = A[q.id].v || "";
       inp.addEventListener("input", () => { if (inp.value === "") delete A[q.id]; else A[q.id] = { v: inp.value }; refresh(q); });
       body.append(inp);
@@ -310,7 +447,7 @@ async function applicantPage(token) {
     const c = cards[q.id];
     c.classList.toggle("skipped", isSkipped(q.id));
     c.classList.toggle("done", isAnswered(q.id));
-    c.querySelector(".skipbtn").textContent = isSkipped(q.id) ? "Skipped ✕" : "Skip";
+    c.querySelector(".skipbtn").textContent = isSkipped(q.id) ? S().skipped : S().skip;
     const v = A[q.id] && !A[q.id].skip ? A[q.id].v : undefined;
     if (q.kind === "single") c.querySelectorAll(".opt").forEach((b, i) => b.setAttribute("aria-pressed", String(q.options[i] === v)));
     if (q.kind === "rate") c.querySelectorAll(".rate button").forEach((b, i) => b.classList.toggle("on", i + 1 === v));
@@ -321,29 +458,29 @@ async function applicantPage(token) {
   function counts() { const a = Q.filter(q => isAnswered(q.id)).length, s = Q.filter(q => isSkipped(q.id)).length; return { a, s, left: Q.length - a - s }; }
   function progress() {
     const { a, s, left } = counts(), n = Q.length || 1;
-    pa.style.width = (a / n * 100) + "%"; ps.style.width = (s / n * 100) + "%";
-    pt.textContent = `${a} answered · ${s} skipped · ${left} left`;
-    leftNote.textContent = a === Q.length ? "You answered everything! Thank you, I really appreciate it 🙏✨"
-      : [left ? left + " empty" : "", s ? s + " skipped" : ""].filter(Boolean).join(" and ") + ". You can still submit, but if you answer everything, I would really appreciate it 🙏";
+    ui.pa.style.width = (a / n * 100) + "%"; ui.ps.style.width = (s / n * 100) + "%";
+    ui.pt.textContent = S().progress(a, s, left);
+    ui.leftNote.textContent = a === Q.length ? S().allDone : S().leftNote(left, s);
   }
+  function setSave(k) { saveKey = k; if (ui.saveState) ui.saveState.textContent = S()[k]; }
 
   /* autosave */
   let saveTimer = null, saving = false, pending = false;
   function payload() { const o = {}; Q.forEach(q => { const x = A[q.id]; if (!x) return; if (x.skip) o[q.id] = { skip: true }; else if (String(x.v).trim() !== "") o[q.id] = { v: x.v }; }); return o; }
   function queueSave() {
     store.set(LOCAL, JSON.stringify({ at: Date.now(), a: A }));
-    saveState.textContent = "Saving…";
+    setSave("saving");
     clearTimeout(saveTimer); saveTimer = setTimeout(() => save(false), 1200);
   }
   async function save(submit) {
     if (saving) { pending = true; return null; }
-    saving = true; clearTimeout(saveTimer);
+    saving = true; clearTimeout(saveTimer); saveTimer = null;
     try {
       const r = await rpc("applicant_save", { p_token: token, p_answers: payload(), p_submit: !!submit });
-      saveState.textContent = "Saved ✓";
+      setSave("saved");
       return r;
     } catch (e) {
-      saveState.textContent = "Not saved yet – will retry";
+      setSave("notSaved");
       if (!submit) saveTimer = setTimeout(() => save(false), 5000);
       if (submit) throw e;
       return null;
@@ -354,52 +491,54 @@ async function applicantPage(token) {
   }
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && saveTimer) save(false); });
 
-  sendBtn.addEventListener("click", async () => {
-    sendBtn.disabled = true; sendMsg.textContent = "";
+  async function onSend() {
+    const btn = ui.sendBtn;
+    btn.disabled = true; ui.sendMsg.textContent = "";
     while (saving) await new Promise(r => setTimeout(r, 200));
     try {
       const r = await save(true);
       submittedAt = r && r.submitted_at;
       showDone();
-    } catch (e) { sendMsg.textContent = e.message; }
-    sendBtn.disabled = false;
-  });
-
+    } catch (e) { ui.sendMsg.textContent = e.code === "offline" ? S().offline : e.message; }
+    btn.disabled = false;
+  }
   function showDone() {
     const { a } = counts(); const all = a === Q.length;
-    doneView.replaceChildren();
+    const D = ui.doneView;
+    D.replaceChildren();
     const c = el("div", "card done-card");
     c.style.marginTop = "16px";
-    c.append(el("div", "stamp2", "Received"));
-    c.append(el("h1", null, all ? "You answered everything! 🎉" : "Application sent! 🎉"));
-    c.append(el("div", "msg", all ? "Thank you so much, I really appreciate it 🙏✨ HR will review it very seriously 😂" : "Thank you! HR will review it very seriously 😂"));
-    c.append(el("div", "msg", "You can open this same link anytime to change your answers or to see your result once HR decides."));
-    const back = el("button", "ghost", "Back to my answers");
-    back.addEventListener("click", () => { doneView.hidden = true; formView.hidden = false; top.hidden = false; sendBtn.textContent = "Send updated answers"; });
+    c.append(el("div", "stamp2", S().received));
+    c.append(el("h1", null, all ? S().doneAllTitle : S().doneTitle));
+    c.append(el("div", "msg", all ? S().doneAllMsg : S().doneMsg));
+    c.append(el("div", "msg", S().reopen));
+    const back = el("button", "ghost", S().back);
+    back.addEventListener("click", () => { D.hidden = true; ui.formView.hidden = false; ui.top.hidden = false; ui.sendBtn.textContent = S().resend; });
     c.append(back);
-    doneView.append(c);
-    formView.hidden = true; top.hidden = true; doneView.hidden = false; window.scrollTo(0, 0);
+    D.append(c);
+    ui.formView.hidden = true; ui.top.hidden = true; D.hidden = false; window.scrollTo(0, 0);
   }
 
-  Q.forEach(q => refresh(q, true));
-  saveState.textContent = Object.keys(A).length ? "Saved ✓" : "Your answers save automatically";
+  render();
 }
 
-function resultCard(res) {
+function resultCard(res, lang) {
+  const S = STR[lang || "en"];
   const good = verdictGood(res.verdict);
   const c = el("div", "result-card" + (good ? " good" : ""));
-  c.append(el("div", "formno", "HR decision"));
-  if (res.verdict) c.append(el("div", "stamp2" + (good ? " good" : ""), verdictLabel(res.verdict)));
-  if (res.score != null) { const s = el("div", "score", res.score + " / 100"); c.append(s); }
+  c.append(el("div", "formno", S.hrDecision));
+  if (res.verdict) c.append(el("div", "stamp2" + (good ? " good" : ""), S.verdicts[res.verdict] || res.verdict));
+  if (res.score != null) c.append(el("div", "score", res.score + " / 100"));
   if (res.notes) c.append(el("div", "answer-text", res.notes));
-  if (!res.verdict && res.score == null && !res.notes) c.append(el("div", "msg", "HR is still thinking 🤔"));
+  if (!res.verdict && res.score == null && !res.notes) c.append(el("div", "msg", S.thinking));
   return c;
 }
-function showError(msg) {
+function showError(msg, lang) {
+  const S = STR[lang || "en"];
   $app.replaceChildren();
   const c = el("div", "card done-card"); c.style.marginTop = "40px";
-  c.append(el("div", "stamp2", "Oops"), el("div", null, msg));
-  const retry = el("button", "ghost", "Try again"); retry.addEventListener("click", () => location.reload());
+  c.append(el("div", "stamp2", S.oops), el("div", null, msg));
+  const retry = el("button", "ghost", S.retry); retry.addEventListener("click", () => location.reload());
   c.append(retry); $app.append(c);
 }
 
@@ -467,41 +606,58 @@ function showTab() {
 function linkFor(token) { return location.origin + location.pathname + "?a=" + token; }
 
 /* --- applicants list --- */
+const hasCJK = s => /[㐀-鿿豈-﫿]/.test(String(s || ""));
+function gtLink(text, to) {
+  const a = el("a", "small tr-link", to === "en" ? "Translate to English ↗" : "Translate to " + langName(to) + " ↗");
+  a.href = "https://translate.google.com/?sl=auto&tl=" + (GT_CODE[to] || to) + "&op=translate&text=" + encodeURIComponent(text);
+  a.target = "_blank"; a.rel = "noopener";
+  return a;
+}
 async function appsTab() {
   $main.replaceChildren();
   const head = el("div", "head");
   head.append(el("div", "formno", "Human Resources"), el("h2", null, "Applicants"));
   const nf = el("label", "f", "New application for"); const ni = el("input"); ni.type = "text"; ni.id = "newname"; ni.placeholder = "Their name"; nf.append(ni);
+  const lf = el("label", "f", "Form language"); const ls = el("select"); ls.id = "newlang";
+  LANGS.forEach(([v, l]) => { const o = el("option", null, l); o.value = v; ls.append(o); });
+  ls.value = store.get("last-lang") || "en";
+  lf.append(ls);
+  lf.append(el("div", "meta", "They can still switch language at the top of the form."));
   const nb = el("button", "big", "Create link");
   const nerr = el("div", "err");
   const created = el("div", "wrap");
   nb.addEventListener("click", async () => {
     nb.disabled = true; nerr.textContent = "";
     try {
-      const r = await owner("owner_create_application", { p_name: ni.value });
+      const r = await owner("owner_create_application", { p_name: ni.value, p_lang: ls.value });
+      store.set("last-lang", ls.value);
       const name = ni.value.trim(); ni.value = "";
-      created.replaceChildren(newLinkCard(name, r.token));
+      created.replaceChildren(newLinkCard(name, r.token, r.lang || ls.value));
       loadList();
     } catch (e) { nerr.textContent = e.message; }
     nb.disabled = false;
   });
-  head.append(nf, nerr, nb);
+  head.append(nf, lf, nerr, nb);
   const list = el("div", "wrap"); list.id = "applist";
   list.append(el("div", "empty", "Loading applicants…"));
   $main.append(head, created, list);
   await loadList();
   pollTimer = setInterval(loadList, 15000);
 }
-function newLinkCard(name, token) {
+function newLinkCard(name, token, lang) {
   const c = el("div", "card");
-  c.append(el("div", "formno", "Link ready for " + name));
+  c.append(el("div", "formno", "Link ready for " + name + " · " + langName(lang)));
   const link = linkFor(token);
   c.append(el("div", "linkbox", link));
-  const msgText = "Okay I found the most ridiculous form online and I'm legally required to make you fill it 😂 no pressure: " + link;
+  const msgText = STR[lang] ? STR[lang].invite(link) : STR.en.invite(link);
   const row = el("div", "row");
   const b1 = el("button", "ghost grow", "Copy link"); b1.addEventListener("click", () => copyText(link, b1));
   const b2 = el("button", "ghost grow", "Copy with message"); b2.addEventListener("click", () => copyText(msgText, b2));
   row.append(b1, b2); c.append(row);
+  if (lang !== "en") {
+    const m = el("div", "meta", "The message is in " + langName(lang) + ". In English it says: “" + STR.en.invite("[link]") + "”");
+    c.append(m);
+  }
   return c;
 }
 function statusPill(a) {
@@ -521,7 +677,9 @@ async function loadList() {
   if (!apps.length) { list.append(el("div", "empty", "No applicants yet. Type a name above and tap Create link, then send them the link.")); return; }
   apps.forEach(a => {
     const b = el("button", "card app-item");
-    const r1 = el("div", "row"); const nm = el("b", "grow", a.name); r1.append(nm, statusPill(a));
+    const r1 = el("div", "row"); const nm = el("b", "grow", a.name); r1.append(nm);
+    if (a.lang && a.lang !== "en") r1.append(el("span", "pill new", langShort(a.lang)));
+    r1.append(statusPill(a));
     if (a.verdict) r1.append(el("span", "pill verdict", verdictLabel(a.verdict)));
     const bar = el("div", "bar"); const pa = el("i", "a"), ps = el("i", "s");
     pa.style.width = (a.answered / a.total * 100) + "%"; ps.style.width = (a.skipped / a.total * 100) + "%"; bar.append(pa, ps);
@@ -549,7 +707,8 @@ async function detailView(id) {
   const r1 = el("div", "row"); r1.append(el("h2", "grow", a.name), statusPill({ submitted_at: a.submitted_at, updated_at: a.updated_at, answered: a.answered_count, skipped: a.skipped_count, opened_at: a.opened_at }));
   head.append(el("div", "formno", "Applicant file"), r1);
   const times = [["Sent", a.created_at], ["Opened", a.opened_at], ["Last activity", a.updated_at], ["Submitted", a.submitted_at]].filter(x => x[1]).map(x => x[0] + ": " + when(x[1])).join(" · ");
-  head.append(el("div", "meta", times));
+  head.append(el("div", "meta", "Form language: " + langName(a.lang || "en") + " · " + times));
+  if (a.lang && a.lang !== "en") head.append(el("div", "msg", "Picked options are shown in English. For typed answers in Chinese, tap “Translate to English” under the answer."));
   const link = linkFor(a.token);
   head.append(el("div", "linkbox", link));
   const cl = el("button", "ghost", "Copy their link"); cl.addEventListener("click", () => copyText(link, cl)); head.append(cl);
@@ -571,7 +730,10 @@ async function detailView(id) {
         (q.options || []).forEach(o => { const on = r && !r.skip && r.v === o; const row = el("div", "ro" + (on ? " picked" : "")); row.append(el("span", "box", on ? "✓" : ""), el("span", null, o)); card.append(row); });
       } else if (q.kind === "rate") {
         card.append(r && !r.skip ? el("div", "answer-text", r.v + " / 10") : el("div", "rate-ends", "Scale: 1 to 10"));
-      } else if (r && !r.skip) card.append(el("div", "answer-text", String(r.v)));
+      } else if (r && !r.skip) {
+        card.append(el("div", "answer-text", String(r.v)));
+        if (hasCJK(r.v)) card.append(gtLink(String(r.v), "en"));
+      }
       box.append(card);
     });
     $main.append(box);
@@ -601,6 +763,16 @@ function reviewPanel(a) {
   });
   const sf = el("label", "f", "Overall score / 100"); const si = el("input"); si.type = "number"; si.min = 0; si.max = 100; si.inputMode = "numeric"; si.id = "score"; if (a.score != null) si.value = a.score; sf.append(si);
   const nf = el("label", "f", "Notes"); const nt = el("textarea"); nt.id = "notes"; nt.value = a.notes || ""; nf.append(nt);
+  const extra = el("div", "wrap");
+  if (a.lang && a.lang !== "en") {
+    extra.append(el("div", "meta", "They read " + langName(a.lang) + ". The verdict shows in their language automatically. Your note shows exactly as you type it, so you can translate it first:"));
+    const tl = el("button", "small", "Translate my note to " + langName(a.lang) + " ↗"); tl.type = "button";
+    tl.addEventListener("click", () => {
+      if (!nt.value.trim()) { toast("Type a note first"); return; }
+      const l = gtLink(nt.value, a.lang); l.click();
+    });
+    extra.append(tl);
+  }
   const tg = el("label", "toggle"); const cb = el("input"); cb.type = "checkbox"; cb.id = "share"; cb.checked = !!a.result_shared;
   tg.append(cb, el("span", null, "Show this result to them (verdict, score and notes)"));
   const save = el("button", "big", "Save HR decision");
@@ -614,12 +786,13 @@ function reviewPanel(a) {
     catch (e) { err.textContent = e.message; }
     save.disabled = false;
   });
-  c.append(vg, sf, nf, tg, err, save);
+  c.append(vg, sf, nf, extra, tg, err, save);
   return c;
 }
 
 /* --- questions editor --- */
 let QS = [];
+const ZH = ["zh-Hans", "zh-Hant"];
 async function questionsTab() {
   $main.replaceChildren(el("div", "empty", "Loading questions…"));
   try { QS = await owner("owner_list_questions"); } catch (e) { $main.replaceChildren(el("div", "err", e.message)); return; }
@@ -628,8 +801,10 @@ async function questionsTab() {
 function renderQuestions() {
   $main.replaceChildren();
   const head = el("div", "head");
+  const missing = QS.filter(q => !ZH.every(l => q.tr && q.tr[l] && q.tr[l].text)).length;
   head.append(el("div", "formno", `${QS.length} questions`), el("h2", null, "Questions"));
   head.append(el("div", "msg", "Changes here only affect NEW links. People who already have a link keep the questions they got."));
+  if (missing) head.append(el("div", "meta", `${missing} question${missing > 1 ? "s have" : " has"} no Chinese yet (marked EN only). They show in English on Chinese links.`));
   const add = el("button", "big blue", "+ Add a question");
   add.addEventListener("click", () => editQuestion(null));
   head.append(add);
@@ -640,7 +815,10 @@ function renderQuestions() {
       const c = el("div", "card");
       const row = el("div", "qrow");
       const t = el("div", "t");
-      t.append(el("div", "k", { text: "Written", single: "Choice", rate: "1–10" }[q.kind]), el("div", null, q.text));
+      const kinds = el("div", "k", { text: "Written", single: "Choice", rate: "1–10" }[q.kind]);
+      const has = ZH.filter(l => q.tr && q.tr[l] && q.tr[l].text).map(langShort);
+      kinds.append(document.createTextNode(" · " + (has.length ? "EN " + has.join(" ") : "EN only")));
+      t.append(kinds, el("div", null, q.text));
       if (q.kind === "single") t.append(el("div", "meta", (q.options || []).join(" · ")));
       const ctl = el("div", "ctl");
       const idx = QS.indexOf(q);
@@ -655,21 +833,34 @@ function renderQuestions() {
     $main.append(box);
   });
 }
+function sectionTr(section) {
+  // the Chinese name of a section, taken from any question already in it
+  const out = {};
+  QS.forEach(x => { if (x.section === section && x.tr) ZH.forEach(l => { if (!out[l] && x.tr[l] && x.tr[l].section) out[l] = x.tr[l].section; }); });
+  return out;
+}
 async function move(i, d) {
   const j = i + d; if (j < 0 || j >= QS.length) return;
   const a = QS[i], b = QS[j];
-  if (a.section !== b.section) a.section = b.section; // moving across a section boundary joins that section
+  if (a.section !== b.section) {
+    // moving across a section boundary joins that section
+    a.section = b.section;
+    const st = sectionTr(b.section);
+    a.tr = Object.assign({}, a.tr || {});
+    ZH.forEach(l => { if (a.tr[l]) a.tr[l] = Object.assign({}, a.tr[l], { section: st[l] || undefined }); });
+  }
   [QS[i], QS[j]] = [QS[j], QS[i]];
   renderQuestions();
   try {
-    await owner("owner_save_question", { p_id: a.id, p_section: a.section, p_kind: a.kind, p_text: a.text, p_hint: a.hint, p_options: a.options, p_position: null });
+    await owner("owner_save_question", { p_id: a.id, p_section: a.section, p_kind: a.kind, p_text: a.text, p_hint: a.hint, p_options: a.options, p_position: null, p_tr: a.tr || {} });
     await owner("owner_reorder_questions", { p_ids: QS.map(q => q.id) });
   } catch (e) { toast(e.message); questionsTab(); }
 }
 function editQuestion(q) {
   window.scrollTo(0, 0);
   const isNew = !q;
-  q = q || { section: QS.length ? QS[QS.length - 1].section : "Section 1 · Questions", kind: "text", text: "", hint: "", options: [] };
+  q = q || { section: QS.length ? QS[QS.length - 1].section : "Section 1 · Questions", kind: "text", text: "", hint: "", options: [], tr: {} };
+  const tr0 = q.tr || {};
   $main.replaceChildren();
   const c = el("div", "head");
   c.append(el("div", "formno", isNew ? "New question" : "Edit question"));
@@ -680,7 +871,6 @@ function editQuestion(q) {
   ss.value = sections.includes(q.section) ? q.section : "__new";
   const sn = el("input"); sn.type = "text"; sn.id = "qsectionnew"; sn.placeholder = "e.g. Section 13 · Bonus round"; sn.hidden = ss.value !== "__new";
   if (ss.value === "__new") sn.value = q.section || "";
-  ss.addEventListener("change", () => { sn.hidden = ss.value !== "__new"; });
   sf.append(ss, sn);
   const kf = el("label", "f", "Answer type"); const ks = el("select"); ks.id = "qkind";
   [["text", "Written answer"], ["single", "Choose one option"], ["rate", "Rating 1 to 10"]].forEach(([v, l]) => { const o = el("option", null, l); o.value = v; ks.append(o); });
@@ -688,23 +878,70 @@ function editQuestion(q) {
   const tf = el("label", "f", "Question"); const ti = el("textarea"); ti.id = "qtext"; ti.value = q.text; tf.append(ti);
   const hf = el("label", "f", "Small note under it (optional)"); const hi = el("input"); hi.type = "text"; hi.id = "qhint"; hi.value = q.hint || ""; hf.append(hi);
   const of = el("label", "f", "Options – one per line"); const oi = el("textarea"); oi.id = "qopts"; oi.rows = 5; oi.value = (q.options || []).join("\n"); of.append(oi);
-  const syncKind = () => { of.hidden = ks.value !== "single"; };
+
+  /* Chinese */
+  const zh = el("details", "zh"); zh.open = !!(tr0["zh-Hans"] || tr0["zh-Hant"]);
+  zh.append(el("summary", null, "Chinese translation (简体 / 繁體)"));
+  zh.append(el("div", "meta", "Optional. Anything left empty shows in English on Chinese links. If you change the English question, update the Chinese too — tap the Translate button, or ask Claude."));
+  const zf = {};
+  ZH.forEach(l => {
+    const t = tr0[l] || {};
+    const box = el("div", "zhbox"); box.lang = l;
+    box.append(el("div", "formno", langName(l)));
+    const f1 = el("label", "f", "Question"); const i1 = el("textarea"); i1.id = "zq-" + l; i1.value = t.text || ""; f1.append(i1);
+    const f2 = el("label", "f", "Small note"); const i2 = el("input"); i2.type = "text"; i2.id = "zh-" + l; i2.value = t.hint || ""; f2.append(i2);
+    const f3 = el("label", "f", "Options – same order, one per line"); const i3 = el("textarea"); i3.id = "zo-" + l; i3.rows = 5; i3.value = (t.options || []).join("\n"); f3.append(i3);
+    const f4 = el("label", "f", "Section name"); const i4 = el("input"); i4.type = "text"; i4.id = "zs-" + l; i4.value = t.section || ""; f4.append(i4);
+    const tb = el("button", "small", "Translate English → " + langName(l) + " ↗"); tb.type = "button";
+    tb.addEventListener("click", () => {
+      const src = [ti.value, ks.value === "single" ? oi.value : ""].filter(Boolean).join("\n\n");
+      if (!src.trim()) { toast("Type the English question first"); return; }
+      gtLink(src, l).click();
+    });
+    box.append(f1, f2, f3, f4, tb);
+    zf[l] = { text: i1, hint: i2, options: i3, section: i4, optField: f3 };
+    zh.append(box);
+  });
+  const fillSectionTr = () => {
+    const name = ss.value === "__new" ? sn.value.trim() : ss.value;
+    const st = sectionTr(name);
+    ZH.forEach(l => { if (!zf[l].section.value && st[l]) zf[l].section.value = st[l]; });
+  };
+  ss.addEventListener("change", () => { sn.hidden = ss.value !== "__new"; fillSectionTr(); });
+  if (isNew) fillSectionTr();
+  const syncKind = () => { const s = ks.value === "single"; of.hidden = !s; ZH.forEach(l => zf[l].optField.hidden = !s); };
   ks.addEventListener("change", syncKind); syncKind();
+
   const err = el("div", "err");
   const save = el("button", "big blue", "Save question");
   const cancel = el("button", "ghost", "Cancel");
   cancel.addEventListener("click", renderQuestions);
   save.addEventListener("click", async () => {
-    err.textContent = ""; save.disabled = true;
+    err.textContent = "";
     const section = ss.value === "__new" ? sn.value.trim() : ss.value;
     const opts = oi.value.split("\n").map(s => s.trim()).filter(Boolean);
+    const tr = {};
+    for (const l of ZH) {
+      const o = {};
+      const t = zf[l].text.value.trim(), h = zf[l].hint.value.trim(), s = zf[l].section.value.trim();
+      const zo = zf[l].options.value.split("\n").map(x => x.trim()).filter(Boolean);
+      if (t) o.text = t;
+      if (h) o.hint = h;
+      if (s) o.section = s;
+      if (ks.value === "single" && zo.length) {
+        if (zo.length !== opts.length) { err.textContent = `${langName(l)}: you have ${zo.length} Chinese options but ${opts.length} English ones. They must match line by line.`; return; }
+        o.options = zo;
+      }
+      if (Object.keys(o).length) tr[l] = o;
+    }
+    save.disabled = true;
     try {
-      await owner("owner_save_question", { p_id: isNew ? null : q.id, p_section: section, p_kind: ks.value, p_text: ti.value, p_hint: hi.value, p_options: opts, p_position: isNew ? sectionEndPosition(section) : null });
+      await owner("owner_save_question", { p_id: isNew ? null : q.id, p_section: section, p_kind: ks.value, p_text: ti.value, p_hint: hi.value, p_options: opts, p_position: isNew ? sectionEndPosition(section) : null, p_tr: tr });
       toast("Saved ✓");
       await questionsTab();
     } catch (e) { err.textContent = e.message; save.disabled = false; }
   });
-  c.append(sf, kf, tf, hf, of, err, save, cancel);
+  c.append(sf, kf, tf, hf, of, zh, err, save, cancel);
   $main.append(c);
   if (!isNew) {
     const del = el("button", "ghost danger", "Delete this question");
@@ -738,15 +975,31 @@ async function settingsTab() {
   const tf = el("label", "f", "Form title"); const ti = el("input"); ti.type = "text"; ti.id = "stitle"; ti.value = s.form_title; tf.append(ti);
   const inf = el("label", "f", "Intro line"); const ii = el("textarea"); ii.id = "sintro"; ii.value = s.intro; inf.append(ii);
   const pf = el("label", "f", "\"Please answer everything\" line"); const pi = el("textarea"); pi.id = "spraise"; pi.value = s.praise; pf.append(pi);
+  c.append(tf, inf, pf);
+  const tr0 = s.tr || {}, zf = {};
+  ZH.forEach(l => {
+    const t = tr0[l] || {};
+    const d = el("details", "zh"); d.lang = l; d.open = false;
+    d.append(el("summary", null, langName(l)));
+    const box = el("div", "zhbox");
+    const a1 = el("label", "f", "Form title"); const b1 = el("input"); b1.type = "text"; b1.id = "st-" + l; b1.value = t.form_title || ""; a1.append(b1);
+    const a2 = el("label", "f", "Intro line"); const b2 = el("textarea"); b2.id = "si-" + l; b2.value = t.intro || ""; a2.append(b2);
+    const a3 = el("label", "f", "\"Please answer everything\" line"); const b3 = el("textarea"); b3.id = "sp-" + l; b3.value = t.praise || ""; a3.append(b3);
+    box.append(a1, a2, a3); d.append(box); c.append(d);
+    zf[l] = { form_title: b1, intro: b2, praise: b3 };
+  });
+  c.append(el("div", "meta", "If you change the English title or lines, update the Chinese ones too (or leave them empty to show English)."));
   const err = el("div", "err");
   const save = el("button", "big blue", "Save");
   save.addEventListener("click", async () => {
     err.textContent = ""; save.disabled = true;
-    try { await owner("owner_update_settings", { p_title: ti.value, p_intro: ii.value, p_praise: pi.value }); toast("Saved ✓"); }
+    const tr = {};
+    ZH.forEach(l => { const o = {}; ["form_title", "intro", "praise"].forEach(k => { const v = zf[l][k].value.trim(); if (v) o[k] = v; }); if (Object.keys(o).length) tr[l] = o; });
+    try { await owner("owner_update_settings", { p_title: ti.value, p_intro: ii.value, p_praise: pi.value, p_tr: tr }); toast("Saved ✓"); }
     catch (e) { err.textContent = e.message; }
     save.disabled = false;
   });
-  c.append(tf, inf, pf, err, save);
+  c.append(err, save);
   const out = el("button", "ghost", "Log out on this phone");
   out.addEventListener("click", () => { store.del(PASS_KEY); PASS = null; clearInterval(pollTimer); loginScreen(); });
   $main.append(c, out);
